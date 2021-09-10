@@ -138,6 +138,9 @@ class CourseViewSet(CompressedCacheResponseMixin, viewsets.ModelViewSet):
             if get_query_param(self.request, 'published_course_runs_only'):
                 course_runs = course_runs.filter(status=CourseRunStatus.Published)
 
+            # Apply an order to the course_runs by the parameter "course_runs_sort_by"
+            course_runs = filters.CourseRunOrderingFilter().filter_queryset(self.request, course_runs, CourseRunViewSet)
+
             if get_query_param(self.request, 'include_deleted_programs'):
                 programs = Program.objects.all()
             else:

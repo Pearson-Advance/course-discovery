@@ -12,6 +12,7 @@ from drf_haystack.query import FacetQueryBuilder
 from dry_rest_permissions.generics import DRYPermissionFiltersBase
 from guardian.shortcuts import get_objects_for_user
 from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.filters import OrderingFilter
 
 from course_discovery.apps.api.utils import cast2int
 from course_discovery.apps.course_metadata.choices import CourseRunStatus, ProgramStatus
@@ -179,6 +180,28 @@ class CourseRunFilter(FilterSetMixin, filters.FilterSet):
     class Meta:
         model = CourseRun
         fields = ('keys', 'hidden', 'license',)
+
+
+class CourseRunOrderingFilter(OrderingFilter):
+    ordering_param = 'course_runs_sort_by'
+    allowed_custom_filters = ['key', 'start']
+
+    def get_ordering(self, request, queryset, view):
+        params = request.query_params.get(self.ordering_param)
+        if params:
+            fields = [param.strip() for param in params.split(',')]
+            ordering = [f for f in fields if f.lstrip('-') in self.allowed_custom_filters]
+            if ordering:
+                return ordering
+
+        return self.get_default_ordering(view)
+
+    def filter_queryset(self, request, queryset, view):
+        ordering = self.get_ordering(request, queryset, view)
+        if ordering:
+            return queryset.order_by(*ordering)
+
+        return queryset
 
 
 class ProgramFilter(FilterSetMixin, filters.FilterSet):
