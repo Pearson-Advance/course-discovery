@@ -183,25 +183,56 @@ class CourseRunFilter(FilterSetMixin, filters.FilterSet):
 
 
 class CourseRunOrderingFilter(OrderingFilter):
+    """This class applies a custom order to a CourseRun QuerySet.
+
+    It uses a ordering param called `course_runs_sort_by`.
+
+    Attributes:
+        ordering_param (str): The param that specifies the custom ordering.
+        allowed_custom_filters (:obj:`list` of :obj:`str`): List of allowed fields.
+
+    """
     ordering_param = 'course_runs_sort_by'
     allowed_custom_filters = ['key', 'start']
 
     def get_ordering(self, request, queryset, view):
-        params = request.query_params.get(self.ordering_param)
-        if params:
-            fields = [param.strip() for param in params.split(',')]
-            ordering = [f for f in fields if f.lstrip('-') in self.allowed_custom_filters]
-            if ordering:
-                return ordering
+        """Class methods that returns the ordering fields.
 
-        return self.get_default_ordering(view)
+        Args:
+            request: The request.
+            queryset: The CourseRun queryset.
+            view: The CourseRunViewset
+
+        Returns:
+             A empty array if no custom ordering is passed.
+             Else an array with the ordering fields.
+
+        """
+        params = request.query_params.get(self.ordering_param)
+
+        if not params:
+            return self.get_default_ordering(view)
+
+        fields = [param.strip() for param in params.split(',')]
+        ordering = [filter for filter in fields if filter.lstrip('-') in self.allowed_custom_filters]
+
+        return ordering if ordering else self.get_default_ordering(view)
 
     def filter_queryset(self, request, queryset, view):
-        ordering = self.get_ordering(request, queryset, view)
-        if ordering:
-            return queryset.order_by(*ordering)
+        """Class methods returns the ordered queryset.
 
-        return queryset
+        Args:
+            request: The request.
+            queryset: The CourseRun queryset.
+            view: The CourseRunViewset
+
+        Returns:
+            The ordered Queryset.
+
+        """
+        ordering = self.get_ordering(request, queryset, view)
+
+        return queryset.order_by(*ordering) if ordering else queryset.order_by('-start')
 
 
 class ProgramFilter(FilterSetMixin, filters.FilterSet):
