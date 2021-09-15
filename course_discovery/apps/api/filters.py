@@ -229,7 +229,7 @@ class CourseRunOrderingFilter(OrderingFilter):
         """
         ordering = self.get_ordering(request, queryset, view)
 
-        return queryset.order_by(*ordering) if ordering else queryset.order_by('-start')
+        return queryset.order_by(*ordering) if ordering else queryset.order_by('start')
 
 
 class ProgramFilter(FilterSetMixin, filters.FilterSet):
