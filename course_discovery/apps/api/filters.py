@@ -190,7 +190,6 @@ class CourseRunOrderingFilter(OrderingFilter):
     Attributes:
         ordering_param (str): The param that specifies the custom ordering.
         allowed_custom_filters (:obj:`list` of :obj:`str`): List of allowed fields.
-
     """
     ordering_param = 'course_runs_sort_by'
     allowed_custom_filters = ['key', 'start']
@@ -201,12 +200,11 @@ class CourseRunOrderingFilter(OrderingFilter):
         Args:
             request: The request.
             queryset: The CourseRun queryset.
-            view: The CourseRunViewset
+            view: The CourseRunViewset.
 
         Returns:
              A empty array if no custom ordering is passed.
              Else an array with the ordering fields.
-
         """
         params = request.query_params.get(self.ordering_param)
 
@@ -224,11 +222,10 @@ class CourseRunOrderingFilter(OrderingFilter):
         Args:
             request: The request.
             queryset: The CourseRun queryset.
-            view: The CourseRunViewset
+            view: The CourseRunViewset.
 
         Returns:
             The ordered Queryset.
-
         """
         ordering = self.get_ordering(request, queryset, view)
 
