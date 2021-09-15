@@ -12,6 +12,7 @@ from drf_haystack.query import FacetQueryBuilder
 from dry_rest_permissions.generics import DRYPermissionFiltersBase
 from guardian.shortcuts import get_objects_for_user
 from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.filters import OrderingFilter
 
 from course_discovery.apps.api.utils import cast2int
 from course_discovery.apps.course_metadata.choices import CourseRunStatus, ProgramStatus
@@ -179,6 +180,56 @@ class CourseRunFilter(FilterSetMixin, filters.FilterSet):
     class Meta:
         model = CourseRun
         fields = ('keys', 'hidden', 'license',)
+
+
+class CourseRunOrderingFilter(OrderingFilter):
+    """This class applies a custom order to a CourseRun QuerySet.
+
+    It uses a ordering param called `course_runs_sort_by`.
+
+    Attributes:
+        ordering_param (str): The param that specifies the custom ordering.
+        allowed_custom_filters (:obj:`list` of :obj:`str`): List of allowed fields.
+    """
+    ordering_param = 'course_runs_sort_by'
+    allowed_custom_filters = ['key', 'start']
+
+    def get_ordering(self, request, queryset, view):
+        """Class methods that returns the ordering fields.
+
+        Args:
+            request: The request.
+            queryset: The CourseRun queryset.
+            view: The CourseRunViewset.
+
+        Returns:
+             A empty array if no custom ordering is passed.
+             Else an array with the ordering fields.
+        """
+        params = request.query_params.get(self.ordering_param)
+
+        if not params:
+            return self.get_default_ordering(view)
+
+        fields = [param.strip() for param in params.split(',')]
+        ordering = [filter for filter in fields if filter.lstrip('-') in self.allowed_custom_filters]
+
+        return ordering if ordering else self.get_default_ordering(view)
+
+    def filter_queryset(self, request, queryset, view):
+        """Class methods returns the ordered queryset.
+
+        Args:
+            request: The request.
+            queryset: The CourseRun queryset.
+            view: The CourseRunViewset.
+
+        Returns:
+            The ordered Queryset.
+        """
+        ordering = self.get_ordering(request, queryset, view)
+
+        return queryset.order_by(*ordering) if ordering else queryset.order_by('-start')
 
 
 class ProgramFilter(FilterSetMixin, filters.FilterSet):
