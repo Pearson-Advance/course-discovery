@@ -3,7 +3,7 @@ name: Tutor Build Action Test
 on:
   push:
     branches:
-      - 'pearson-release/olive.main'
+      - 'vue/PADV-326.tests'
 
 jobs:
   docker:
