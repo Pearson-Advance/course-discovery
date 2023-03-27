@@ -28,3 +28,5 @@ jobs:
           use-docker-cache: ${{ vars.BUILD_USE_CACHE }}
           tutor-plugin-sources: '("git+https://github.com/overhangio/tutor-discovery.git@v${{ vars.DISCOVERY_TUTOR_PLUGIN_VERSION }}")'
           tutor-plugin-names: '("discovery")'
+          tutor-pearson-plugin-url: ${{ vars.TUTOR_PEARSON_PLUGIN_URL }}
+          gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
