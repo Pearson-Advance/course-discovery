@@ -20,8 +20,8 @@ jobs:
           python-version: ${{ vars.BUILD_PYTHON_VERSION }}
           tutor-version: ${{ vars.BUILD_TUTOR_VERSION }}
           path-image-to-be-built: 'env/plugins/discovery/build/discovery'
-          repository-name: ${{ vars.BUILD_STAGE_REPOSITORY_NAME }}
-          image-name: ${{ vars.BUILD_STAGE_IMAGE_NAME }}
+          organization-name: ${{ vars.BUILD_ORGANIZATION_NAME }}
+          repository-name: ${{ vars.BUILD_REPOSITORY_NAME }}
           image-tag: ${{ vars.DISCOVERY_TUTOR_PLUGIN_VERSION }}-RC-${{ steps.current-time.outputs.formattedTime }}
           docker-username: ${{ secrets.DOCKERHUB_USERNAME }}
           docker-token: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -29,4 +29,5 @@ jobs:
           tutor-plugin-sources: '("git+https://github.com/overhangio/tutor-discovery.git@v${{ vars.DISCOVERY_TUTOR_PLUGIN_VERSION }}")'
           tutor-plugin-names: '("discovery")'
           tutor-pearson-plugin-url: ${{ vars.TUTOR_PEARSON_PLUGIN_URL }}
+          tutor-pearson-plugin-name: 'pearson-plugin-discovery-stg'
           gh-access-token: ${{ secrets.GH_ACCESS_TOKEN }}
