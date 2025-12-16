@@ -48,6 +48,7 @@ urlpatterns = oauth2_urlpatterns + [
     path('api-auth/', include((oauth2_urlpatterns, 'rest_framework'))),
     path('api-docs/', schema_view.with_ui('swagger', cache_timeout=0), name='api_docs'),
     path('auto_auth/', core_views.AutoAuth.as_view(), name='auto_auth'),
+    path('enterprise_catalogs/', include('course_discovery.apps.enterprise_catalogs.urls', namespace='enterprise_catalogs')),
     path('health/', core_views.health, name='health'),
     path('', QueryPreviewView.as_view()),
     path('publisher/', include('course_discovery.apps.publisher.urls', namespace='publisher')),

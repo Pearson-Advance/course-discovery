@@ -416,6 +416,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_THROTTLE_RATES': {
         'user': '100/hour',
+        # Rate limit for anonymous (unauthenticated) requests, identified by IP address.
+        # Used by AnonRateThrottle in views with AllowAny permission.
+        'anon': '100/hour',
     },
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema'
 }
@@ -686,3 +689,8 @@ LMS_API_URLS = {
     'blocks': 'api/courses/v1/blocks/',
     'block_metadata': 'api/courses/v1/block_metadata/',
 }
+
+# ENTERPRISE CONFIGURATION
+# Base URL for the Enterprise Catalog service.
+# Used to fetch catalog content and course run data for enterprise customers.
+ENTERPRISE_CATALOG_SERVICE_URL = 'http://localhost:18160'
