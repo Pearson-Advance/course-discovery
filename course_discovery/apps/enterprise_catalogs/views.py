@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 
 class EnterpriseCatalogCoursesView(ListAPIView):
     """
-    This view supports both authenticated and anonymous requests
-    as it is consumed by the MFE.
+    API view to list course runs from an Enterprise Catalog.
+
+    Uses AllowAny permission since authentication is not required to access this endpoint.
+    This allows the MFE to fetch catalog data without requiring user login.
     """
 
     permission_classes = (AllowAny,)
