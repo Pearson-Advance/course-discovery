@@ -5,6 +5,7 @@ import logging
 from urllib.parse import urljoin
 
 from django.conf import settings
+from django.core.cache import cache
 from requests.exceptions import RequestException
 
 from course_discovery.apps.enterprise_catalogs.exceptions import (
@@ -21,12 +22,26 @@ class EnterpriseCatalogClient:
     CATALOG_ENDPOINT_TEMPLATE = '/api/v1/enterprise-catalogs/{uuid}/get_content_metadata/'
     PAGE_SIZE = 100
     REQUEST_TIMEOUT = 30
+    CACHE_KEY_TEMPLATE = '{module}.courses.{uuid}.v1'
 
     def __init__(self, partner):
         self.oauth_api_client = partner.oauth_api_client
 
+    def _build_cache_key(self, catalog_uuid):
+        """Build versioned cache key for catalog."""
+        return self.CACHE_KEY_TEMPLATE.format(module=__name__, uuid=catalog_uuid)
+
     def get_course_run_keys(self, catalog_uuid):
         """Fetch course run keys for a catalog from Enterprise Catalog service."""
+        cache_key = self._build_cache_key(catalog_uuid)
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            logger.info('Cache HIT for catalog %s.', catalog_uuid)
+            return cached_data
+
+        logger.info('Cache MISS for catalog %s - fetching from API.', catalog_uuid)
+
         base_url = getattr(settings, 'ENTERPRISE_CATALOG_SERVICE_URL', '').rstrip('/')
         url = urljoin(base_url, self.CATALOG_ENDPOINT_TEMPLATE.format(uuid=catalog_uuid))
         params = {'page_size': self.PAGE_SIZE}
@@ -48,7 +63,10 @@ class EnterpriseCatalogClient:
         strategy = ContentParserStrategyFactory.get_strategy(all_results)
         course_run_keys = strategy.extract_course_run_keys(all_results)
 
-        logger.info('Retrieved %s course runs for catalog %s.', len(course_run_keys), catalog_uuid)
+        timeout = getattr(settings, 'ENTERPRISE_CATALOG_CACHE_TIMEOUT', 3600)
+        cache.set(cache_key, course_run_keys, timeout=timeout)
+
+        logger.info('Retrieved and cached %s course runs for catalog %s (TTL: %ss).', len(course_run_keys), catalog_uuid, timeout)
 
         return course_run_keys
 

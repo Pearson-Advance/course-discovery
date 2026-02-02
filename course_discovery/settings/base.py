@@ -835,3 +835,7 @@ ITERATOR_CHUNK_SIZE = 2000
 # Base URL for the Enterprise Catalog service.
 # Used to fetch catalog content and course run data for enterprise customers.
 ENTERPRISE_CATALOG_SERVICE_URL = 'http://localhost:18160'
+
+# Cache timeout for Enterprise Catalog API responses (in seconds).
+# Default: 3600 seconds (1 hour)
+ENTERPRISE_CATALOG_CACHE_TIMEOUT = 3600
