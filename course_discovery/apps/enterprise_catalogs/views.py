@@ -4,8 +4,11 @@ Views for enterprise_catalogs app.
 import logging
 
 from django_filters.rest_framework import DjangoFilterBackend
+from opaque_keys import InvalidKeyError
+from opaque_keys.edx.keys import CourseKey
 from rest_framework import status
-from rest_framework.generics import ListAPIView
+from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
+from rest_framework.viewsets import GenericViewSet
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -14,19 +17,26 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from course_discovery.apps.course_metadata.models import CourseRun
 from course_discovery.apps.enterprise_catalogs.client import EnterpriseCatalogClient
 from course_discovery.apps.enterprise_catalogs.exceptions import (
-    EnterpriseCatalogAPIError, EnterpriseCatalogNotFoundError,
+    EnterpriseCatalogAPIError, EnterpriseCatalogCourseNotFoundError, EnterpriseCatalogNotFoundError,
 )
 from course_discovery.apps.enterprise_catalogs.filters import EnterpriseCatalogCourseRunFilter
 from course_discovery.apps.enterprise_catalogs.serializers import (
-    EnterpriseCatalogCourseSerializer, EnterpriseCatalogQueryParamsSerializer,
+    EnterpriseCatalogCourseDetailSerializer, EnterpriseCatalogCourseSerializer, EnterpriseCatalogQueryParamsSerializer,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class EnterpriseCatalogCoursesView(ListAPIView):
+class EnterpriseCatalogCoursesViewSet(
+    ListModelMixin,
+    RetrieveModelMixin,
+    GenericViewSet,
+):
     """
-    API view to list course runs from an Enterprise Catalog.
+    ViewSet to list and retrieve course runs from an Enterprise Catalog.
+
+    - LIST: GET /enterprise_catalogs/{catalog_uuid}/courses/
+    - RETRIEVE: GET /enterprise_catalogs/{catalog_uuid}/courses/{course_run_key}/
 
     Uses AllowAny permission since authentication is not required to access this endpoint.
     This allows the MFE to fetch catalog data without requiring user login.
@@ -38,24 +48,19 @@ class EnterpriseCatalogCoursesView(ListAPIView):
     pagination_class = PageNumberPagination
     filter_backends = (DjangoFilterBackend,)
     filterset_class = EnterpriseCatalogCourseRunFilter
+    lookup_url_kwarg = 'course_run_key'
 
-    def get(self, request, *args, **kwargs):
-        """Handle GET request with custom error handling."""
+    def get_serializer_class(self):
+        """Return detail serializer for retrieve, list serializer otherwise."""
+        if self.action == 'retrieve':
+            return EnterpriseCatalogCourseDetailSerializer
+        return EnterpriseCatalogCourseSerializer
+
+    def initial(self, request, *args, **kwargs):
+        """Validate query params before any action."""
+        super().initial(request, *args, **kwargs)
         query_params = EnterpriseCatalogQueryParamsSerializer(data=request.query_params)
         query_params.is_valid(raise_exception=True)
-
-        try:
-            return super().get(request, *args, **kwargs)
-        except EnterpriseCatalogNotFoundError as exc:
-            return Response(
-                {'error': exc.message},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except EnterpriseCatalogAPIError as exc:
-            return Response(
-                {'error': exc.message},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
 
     def get_queryset(self):
         """Fetch courses from Discovery database based on Enterprise Catalog keys."""
@@ -84,9 +89,55 @@ class EnterpriseCatalogCoursesView(ListAPIView):
 
         return queryset
 
+    def get_object(self):
+        """Get single course run, validating membership in catalog."""
+        catalog_uuid = str(self.kwargs.get('catalog_uuid'))
+        course_run_key = self.kwargs.get('course_run_key')
+
+        if not self._is_valid_course_run_key(course_run_key):
+            logger.warning('Invalid course_run_key format received: %s.', course_run_key)
+            raise EnterpriseCatalogCourseNotFoundError()
+
+        catalog_keys = EnterpriseCatalogClient(self.request.site.partner).get_course_run_keys(catalog_uuid)
+        if course_run_key not in catalog_keys:
+            raise EnterpriseCatalogCourseNotFoundError()
+
+        try:
+            return CourseRun.objects.select_related(
+                'course',
+                'course__extra_description',
+            ).prefetch_related(
+                'seats',
+            ).get(key=course_run_key)
+        except CourseRun.DoesNotExist:
+            raise EnterpriseCatalogCourseNotFoundError()
+
     def get_serializer_context(self):
         """Add validated coupon code and partner to serializer context."""
         context = super().get_serializer_context()
         context['coupon_code'] = self.request.query_params.get('coupon_code')
         context['partner'] = self.request.site.partner
         return context
+
+    def handle_exception(self, exc):
+        """Handle catalog-specific exceptions."""
+        if isinstance(exc, (EnterpriseCatalogNotFoundError, EnterpriseCatalogCourseNotFoundError)):
+            return Response(
+                {'error': exc.message},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if isinstance(exc, EnterpriseCatalogAPIError):
+            return Response(
+                {'error': exc.message},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return super().handle_exception(exc)
+
+    @staticmethod
+    def _is_valid_course_run_key(course_run_key):
+        """Return True if course_run_key is a valid CourseKey string."""
+        try:
+            CourseKey.from_string(course_run_key)
+            return True
+        except InvalidKeyError:
+            return False
