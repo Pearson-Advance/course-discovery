@@ -14,3 +14,10 @@ class EnterpriseCatalogNotFoundError(EnterpriseCatalogAPIError):
 
     message = 'Catalog not found.'
     status_code = 404
+
+
+class EnterpriseCatalogCourseNotFoundError(EnterpriseCatalogAPIError):
+    """Raised when course is not found in the catalog (404)."""
+
+    message = 'Course not found in catalog.'
+    status_code = 404
