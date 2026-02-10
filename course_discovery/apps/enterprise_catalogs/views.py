@@ -3,6 +3,7 @@ Views for enterprise_catalogs app.
 """
 import logging
 
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
@@ -15,6 +16,7 @@ from course_discovery.apps.enterprise_catalogs.client import EnterpriseCatalogCl
 from course_discovery.apps.enterprise_catalogs.exceptions import (
     EnterpriseCatalogAPIError, EnterpriseCatalogNotFoundError,
 )
+from course_discovery.apps.enterprise_catalogs.filters import EnterpriseCatalogCourseRunFilter
 from course_discovery.apps.enterprise_catalogs.serializers import (
     EnterpriseCatalogCourseSerializer, EnterpriseCatalogQueryParamsSerializer,
 )
@@ -34,6 +36,8 @@ class EnterpriseCatalogCoursesView(ListAPIView):
     throttle_classes = (AnonRateThrottle, UserRateThrottle,)
     serializer_class = EnterpriseCatalogCourseSerializer
     pagination_class = PageNumberPagination
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = EnterpriseCatalogCourseRunFilter
 
     def get(self, request, *args, **kwargs):
         """Handle GET request with custom error handling."""
@@ -70,18 +74,15 @@ class EnterpriseCatalogCoursesView(ListAPIView):
             'seats',
         )
 
-        results = list(queryset)
-        found_keys = {course_run.key for course_run in results}
-        excluded_keys = set(course_run_keys) - found_keys
-
+        excluded_keys = set(course_run_keys) - set(queryset.values_list('key', flat=True))
         if excluded_keys:
             logger.warning(
-                'Course runs excluded from catalog %s due to missing SKU: %s',
+                'Course runs excluded from catalog %s due to missing SKU: %s.',
                 catalog_uuid,
                 excluded_keys,
             )
 
-        return results
+        return queryset
 
     def get_serializer_context(self):
         """Add validated coupon code and partner to serializer context."""
