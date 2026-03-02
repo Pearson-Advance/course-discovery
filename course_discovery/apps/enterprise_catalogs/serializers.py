@@ -1,12 +1,17 @@
 """
 Serializers for enterprise_catalogs app.
 """
+import json
+import logging
 from urllib.parse import urlencode, urljoin
 
 from rest_framework import serializers
 
 from course_discovery.apps.course_metadata.models import CourseRun
 from course_discovery.apps.course_metadata.utils import get_course_run_estimated_hours
+
+logger = logging.getLogger(__name__)
+COUPON_REDEEM_PATH = '/coupons/redeem/'
 
 
 class EnterpriseCatalogQueryParamsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
@@ -31,7 +36,28 @@ class EnterpriseCatalogQueryParamsSerializer(serializers.Serializer):  # pylint:
         return value
 
 
-class EnterpriseCatalogCourseSerializer(serializers.ModelSerializer):
+class EnterpriseCatalogSerializerMixin:
+    """Mixin with shared logic for enterprise catalog serializers."""
+
+    def _get_sku(self, obj):
+        """Return SKU from the first available seat."""
+        first_seat = obj.seats.first()
+        return first_seat.sku if first_seat else None
+
+    def get_enrollment_url(self, obj):
+        """Return enrollment URL with coupon code and SKU."""
+        coupon_code = self.context.get('coupon_code')
+        partner = self.context.get('partner')
+        sku = self._get_sku(obj)
+
+        if not all([coupon_code, partner, getattr(partner, 'ecommerce_api_url', None), sku]):
+            return None
+
+        query_params = urlencode({'code': coupon_code, 'sku': sku})
+        return f"{urljoin(partner.ecommerce_api_url, COUPON_REDEEM_PATH)}?{query_params}"
+
+
+class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serializers.ModelSerializer):
     """Serializer for CourseRun model in enterprise catalog context."""
 
     title = serializers.CharField(source='course.title')
@@ -62,19 +88,75 @@ class EnterpriseCatalogCourseSerializer(serializers.ModelSerializer):
         """Return estimated hours to complete the course run."""
         return get_course_run_estimated_hours(obj)
 
-    def _get_sku(self, obj):
-        """Return SKU from the first available seat (internal use only)."""
-        first_seat = obj.seats.first()
-        return first_seat.sku if first_seat else None
 
-    def get_enrollment_url(self, obj):
-        """Return enrollment URL with coupon code and SKU."""
-        coupon_code = self.context.get('coupon_code')
-        partner = self.context.get('partner')
-        sku = self._get_sku(obj)
+class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, serializers.ModelSerializer):
+    """Serializer for individual CourseRun detail in enterprise catalog context."""
 
-        if not all([coupon_code, partner, getattr(partner, 'ecommerce_api_url', None), sku]):
-            return None
+    _extra_description_cache = None
+    title = serializers.CharField(source='course.title')
+    overview = serializers.CharField(source='course.full_description', allow_null=True)
+    outline = serializers.CharField(source='course.syllabus_raw', allow_null=True)
+    prerequisites = serializers.CharField(source='course.prerequisites_raw', allow_null=True)
+    learning_objectives = serializers.CharField(source='course.outcome', allow_null=True)
+    vendor = serializers.SerializerMethodField()
+    author = serializers.SerializerMethodField()
+    included_materials = serializers.SerializerMethodField()
+    duration = serializers.SerializerMethodField()
+    target_audience = serializers.SerializerMethodField()
+    enrollment_url = serializers.SerializerMethodField()
 
-        query_params = urlencode({'code': coupon_code, 'sku': sku})
-        return f"{urljoin(partner.ecommerce_api_url, '/coupons/redeem/')}?{query_params}"
+    class Meta:
+        model = CourseRun
+        fields = (
+            'title',
+            'overview',
+            'outline',
+            'prerequisites',
+            'learning_objectives',
+            'vendor',
+            'author',
+            'included_materials',
+            'duration',
+            'target_audience',
+            'enrollment_url',
+        )
+
+    def _get_extra_description_data(self, obj):
+        """Parse extra_description JSON once per object and cache the result."""
+        if self._extra_description_cache is not None:
+            return self._extra_description_cache
+
+        description = getattr(obj.course.extra_description, 'description', None)
+        if not description:
+            return {}
+
+        try:
+            self._extra_description_cache = json.loads(description)
+        except (json.JSONDecodeError, TypeError):
+            logger.exception(
+                'Failed to parse extra_description JSON for course run %s.', obj,
+            )
+            self._extra_description_cache = {}
+
+        return self._extra_description_cache
+
+    def get_vendor(self, obj):
+        """Return vendor name from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('vendor')
+
+    def get_author(self, obj):
+        """Return author from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('author')
+
+    def get_included_materials(self, obj):
+        """Return included materials list from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('included_materials')
+
+    def get_duration(self, obj):
+        """Return duration from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('duration')
+
+    def get_target_audience(self, obj):
+        """Return target audience from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('target_audience')
+
