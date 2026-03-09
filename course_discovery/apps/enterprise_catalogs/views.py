@@ -72,6 +72,7 @@ class EnterpriseCatalogCoursesViewSet(
         queryset = CourseRun.objects.filter(
             key__in=course_run_keys,
             seats__sku__isnull=False,
+            seats__type__slug='professional',
         ).select_related(
             'course',
         ).prefetch_related(
@@ -108,7 +109,7 @@ class EnterpriseCatalogCoursesViewSet(
                 'course__extra_description',
             ).prefetch_related(
                 'seats',
-            ).get(key=course_run_key)
+            ).get(key=course_run_key, seats__sku__isnull=False, seats__type__slug='professional')
         except CourseRun.DoesNotExist:
             raise EnterpriseCatalogCourseNotFoundError()
 

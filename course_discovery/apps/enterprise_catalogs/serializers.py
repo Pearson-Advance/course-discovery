@@ -40,9 +40,9 @@ class EnterpriseCatalogSerializerMixin:
     """Mixin with shared logic for enterprise catalog serializers."""
 
     def _get_sku(self, obj):
-        """Return SKU from the first available seat."""
-        first_seat = obj.seats.first()
-        return first_seat.sku if first_seat else None
+        """Return SKU from the professional seat."""
+        seat = obj.seats.filter(type__slug='professional').first()
+        return seat.sku if seat else None
 
     def get_enrollment_url(self, obj):
         """Return enrollment URL with coupon code and SKU."""
