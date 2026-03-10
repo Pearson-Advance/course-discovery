@@ -77,8 +77,17 @@ class EnterpriseCatalogClient:
             if response.status_code == 404:
                 raise EnterpriseCatalogNotFoundError()
             if response.status_code >= 400:
+                try:
+                    detail = response.json()
+                except ValueError:
+                    detail = response.text
+                logger.error(
+                    'Enterprise Catalog returned %s for %s: %s',
+                    response.status_code, url, detail,
+                )
                 raise EnterpriseCatalogAPIError()
         except RequestException as exc:
+            logger.error('Enterprise Catalog request failed for %s: %s', url, exc)
             raise EnterpriseCatalogAPIError() from exc
 
         return response.json()
