@@ -8,7 +8,6 @@ from urllib.parse import urlencode
 from rest_framework import serializers
 
 from course_discovery.apps.course_metadata.models import CourseRun
-from course_discovery.apps.course_metadata.utils import get_course_run_estimated_hours
 
 logger = logging.getLogger(__name__)
 COUPON_REDEEM_PATH = '/coupons/redeem/'
@@ -39,6 +38,8 @@ class EnterpriseCatalogQueryParamsSerializer(serializers.Serializer):  # pylint:
 class EnterpriseCatalogSerializerMixin:
     """Mixin with shared logic for enterprise catalog serializers."""
 
+    _extra_description_cache = None
+
     def _get_sku(self, obj):
         """Return SKU from the professional seat."""
         seat = obj.seats.filter(type__slug='professional').first()
@@ -55,6 +56,29 @@ class EnterpriseCatalogSerializerMixin:
         query_params = urlencode({'code': coupon_code, 'sku': sku})
         return f"{COUPON_REDEEM_PATH}?{query_params}"
 
+    def _get_extra_description_data(self, obj):
+        """Parse extra_description JSON once per object and cache the result."""
+        if self._extra_description_cache is not None:
+            return self._extra_description_cache
+
+        description = getattr(obj.course.extra_description, 'description', None)
+        if not description:
+            return {}
+
+        try:
+            self._extra_description_cache = json.loads(description)
+        except (json.JSONDecodeError, TypeError):
+            logger.exception(
+                'Failed to parse extra_description JSON for course run %s.', obj,
+            )
+            self._extra_description_cache = {}
+
+        return self._extra_description_cache
+
+    def get_duration(self, obj):
+        """Return duration from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('duration')
+
 
 class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serializers.ModelSerializer):
     """Serializer for CourseRun model in enterprise catalog context."""
@@ -64,7 +88,7 @@ class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serial
     topics = serializers.SerializerMethodField()
     key = serializers.CharField()
     pacing_type = serializers.CharField()
-    estimated_hours = serializers.SerializerMethodField()
+    duration = serializers.SerializerMethodField()
     enrollment_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -75,7 +99,7 @@ class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serial
             'topics',
             'key',
             'pacing_type',
-            'estimated_hours',
+            'duration',
             'enrollment_url',
         )
 
@@ -83,15 +107,10 @@ class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serial
         """Return list of topic names from the parent course."""
         return tuple(tag.name for tag in obj.course.topics.all())
 
-    def get_estimated_hours(self, obj):
-        """Return estimated hours to complete the course run."""
-        return get_course_run_estimated_hours(obj)
-
 
 class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, serializers.ModelSerializer):
     """Serializer for individual CourseRun detail in enterprise catalog context."""
 
-    _extra_description_cache = None
     title = serializers.CharField(source='course.title')
     card_image_url = serializers.URLField(source='course.card_image_url', allow_null=True)
     overview = serializers.CharField(source='course.full_description', allow_null=True)
@@ -122,25 +141,6 @@ class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, 
             'enrollment_url',
         )
 
-    def _get_extra_description_data(self, obj):
-        """Parse extra_description JSON once per object and cache the result."""
-        if self._extra_description_cache is not None:
-            return self._extra_description_cache
-
-        description = getattr(obj.course.extra_description, 'description', None)
-        if not description:
-            return {}
-
-        try:
-            self._extra_description_cache = json.loads(description)
-        except (json.JSONDecodeError, TypeError):
-            logger.exception(
-                'Failed to parse extra_description JSON for course run %s.', obj,
-            )
-            self._extra_description_cache = {}
-
-        return self._extra_description_cache
-
     def get_vendor(self, obj):
         """Return vendor name from extra_description JSON."""
         return self._get_extra_description_data(obj).get('vendor')
@@ -153,11 +153,6 @@ class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, 
         """Return included materials list from extra_description JSON."""
         return self._get_extra_description_data(obj).get('included_materials')
 
-    def get_duration(self, obj):
-        """Return duration from extra_description JSON."""
-        return self._get_extra_description_data(obj).get('duration')
-
     def get_target_audience(self, obj):
         """Return target audience from extra_description JSON."""
         return self._get_extra_description_data(obj).get('target_audience')
-
