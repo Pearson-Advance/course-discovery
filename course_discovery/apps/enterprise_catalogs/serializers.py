@@ -79,6 +79,10 @@ class EnterpriseCatalogSerializerMixin:
         """Return duration from extra_description JSON."""
         return self._get_extra_description_data(obj).get('duration')
 
+    def get_vendor(self, obj):
+        """Return vendor name from extra_description JSON."""
+        return self._get_extra_description_data(obj).get('vendor')
+
 
 class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serializers.ModelSerializer):
     """Serializer for CourseRun model in enterprise catalog context."""
@@ -89,6 +93,7 @@ class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serial
     key = serializers.CharField()
     pacing_type = serializers.CharField()
     duration = serializers.SerializerMethodField()
+    vendor = serializers.SerializerMethodField()
     enrollment_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -100,6 +105,7 @@ class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serial
             'key',
             'pacing_type',
             'duration',
+            'vendor',
             'enrollment_url',
         )
 
@@ -140,10 +146,6 @@ class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, 
             'target_audience',
             'enrollment_url',
         )
-
-    def get_vendor(self, obj):
-        """Return vendor name from extra_description JSON."""
-        return self._get_extra_description_data(obj).get('vendor')
 
     def get_author(self, obj):
         """Return author from extra_description JSON."""
