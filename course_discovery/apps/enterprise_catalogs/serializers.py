@@ -3,7 +3,7 @@ Serializers for enterprise_catalogs app.
 """
 import json
 import logging
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 
 from rest_framework import serializers
 
@@ -45,16 +45,15 @@ class EnterpriseCatalogSerializerMixin:
         return seat.sku if seat else None
 
     def get_enrollment_url(self, obj):
-        """Return enrollment URL with coupon code and SKU."""
+        """Return enrollment URL as a relative path with coupon code and SKU."""
         coupon_code = self.context.get('coupon_code')
-        partner = self.context.get('partner')
         sku = self._get_sku(obj)
 
-        if not all([coupon_code, partner, getattr(partner, 'ecommerce_api_url', None), sku]):
+        if not all([coupon_code, sku]):
             return None
 
         query_params = urlencode({'code': coupon_code, 'sku': sku})
-        return f"{urljoin(partner.ecommerce_api_url, COUPON_REDEEM_PATH)}?{query_params}"
+        return f"{COUPON_REDEEM_PATH}?{query_params}"
 
 
 class EnterpriseCatalogCourseSerializer(EnterpriseCatalogSerializerMixin, serializers.ModelSerializer):
