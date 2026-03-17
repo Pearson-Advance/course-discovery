@@ -93,6 +93,7 @@ class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, 
 
     _extra_description_cache = None
     title = serializers.CharField(source='course.title')
+    card_image_url = serializers.URLField(source='course.card_image_url', allow_null=True)
     overview = serializers.CharField(source='course.full_description', allow_null=True)
     outline = serializers.CharField(source='course.syllabus_raw', allow_null=True)
     prerequisites = serializers.CharField(source='course.prerequisites_raw', allow_null=True)
@@ -108,6 +109,7 @@ class EnterpriseCatalogCourseDetailSerializer(EnterpriseCatalogSerializerMixin, 
         model = CourseRun
         fields = (
             'title',
+            'card_image_url',
             'overview',
             'outline',
             'prerequisites',
