@@ -419,7 +419,10 @@ REST_FRAMEWORK = {
         'course_discovery.apps.core.throttles.OverridableUserRateThrottle',
     ),
     'DEFAULT_THROTTLE_RATES': {
-        'user': '200/hour',
+        'user': '100/hour',
+        # Rate limit for anonymous (unauthenticated) requests, identified by IP address.
+        # Used by AnonRateThrottle in views with AllowAny permission.
+        'anon': '100/hour',
     },
     'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema'
 }
@@ -828,3 +831,11 @@ CELERY_RESULT_EXTENDED = True
 # Required explicitly when using QuerySet.iterator() with prefetch_related.
 # See: https://docs.djangoproject.com/en/5.2/releases/5.0/#features-removed-in-5-0
 ITERATOR_CHUNK_SIZE = 2000
+# ENTERPRISE CONFIGURATION
+# Base URL for the Enterprise Catalog service.
+# Used to fetch catalog content and course run data for enterprise customers.
+ENTERPRISE_CATALOG_SERVICE_URL = 'http://localhost:18160'
+
+# Cache timeout for Enterprise Catalog API responses (in seconds).
+# Default: 3600 seconds (1 hour)
+ENTERPRISE_CATALOG_CACHE_TIMEOUT = 3600
