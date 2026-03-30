@@ -9,11 +9,11 @@ from opaque_keys.edx.keys import CourseKey
 from rest_framework import status
 from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 from rest_framework.viewsets import GenericViewSet
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
+from course_discovery.apps.api.pagination import PageNumberPagination
 from course_discovery.apps.course_metadata.models import CourseRun
 from course_discovery.apps.enterprise_catalogs.client import EnterpriseCatalogClient
 from course_discovery.apps.enterprise_catalogs.exceptions import (
