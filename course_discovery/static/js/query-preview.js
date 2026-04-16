@@ -1,5 +1,8 @@
+var $ = require('jquery');
+window.$ = window.jQuery = $;
+
 require('bootstrap-sass');
-require('datatables.net-bs')();
+require('datatables.net-bs');
 
 var $alertNoResults, $alertQueryInvalid, $query, $table;
 
