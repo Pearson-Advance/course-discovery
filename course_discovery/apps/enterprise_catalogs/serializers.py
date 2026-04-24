@@ -38,7 +38,15 @@ class EnterpriseCatalogQueryParamsSerializer(serializers.Serializer):  # pylint:
 class EnterpriseCatalogSerializerMixin:
     """Mixin with shared logic for enterprise catalog serializers."""
 
-    _extra_description_cache = None
+    def __init__(self, *args, **kwargs):
+        """Initialize _extra_description_memo, a per-instance memoization dict for extra_description JSON parsing.
+
+        DRF reuses a single serializer instance for all objects in a list request,
+        so results are keyed by course ID to avoid mixing data across courses.
+        This dict is ephemeral — it exists only for the duration of the request.
+        """
+        super().__init__(*args, **kwargs)
+        self._extra_description_memo = {}
 
     def _get_sku(self, obj):
         """Return SKU from the professional seat."""
@@ -57,23 +65,29 @@ class EnterpriseCatalogSerializerMixin:
         return f"{COUPON_REDEEM_PATH}?{query_params}"
 
     def _get_extra_description_data(self, obj):
-        """Parse extra_description JSON once per object and cache the result."""
-        if self._extra_description_cache is not None:
-            return self._extra_description_cache
+        """Parse extra_description JSON for a course and memoize the result by course ID.
+
+        Avoids calling json.loads more than once per course, both when multiple
+        serializer fields (vendor, duration, author, etc.) access the same course,
+        and when the same course appears multiple times in the queryset (e.g. due to the seats JOIN).
+
+        Returns an empty dict if extra_description is absent or the JSON is unparseable.
+        """
+        result = {}
+        if (course_id := obj.course.id) in self._extra_description_memo:
+            return self._extra_description_memo[course_id]
 
         description = getattr(obj.course.extra_description, 'description', None)
-        if not description:
-            return {}
+        if description:
+            try:
+                result = json.loads(description)
+            except json.JSONDecodeError:
+                logger.exception(
+                    'Failed to parse extra_description JSON for course run %s.', obj,
+                )
 
-        try:
-            self._extra_description_cache = json.loads(description)
-        except (json.JSONDecodeError, TypeError):
-            logger.exception(
-                'Failed to parse extra_description JSON for course run %s.', obj,
-            )
-            self._extra_description_cache = {}
-
-        return self._extra_description_cache
+        self._extra_description_memo[course_id] = result
+        return result
 
     def get_duration(self, obj):
         """Return duration from extra_description JSON."""

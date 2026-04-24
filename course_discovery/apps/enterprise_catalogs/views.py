@@ -75,6 +75,7 @@ class EnterpriseCatalogCoursesViewSet(
             seats__type__slug='professional',
         ).select_related(
             'course',
+            'course__extra_description',
         ).prefetch_related(
             'course__topics',
             'seats',
