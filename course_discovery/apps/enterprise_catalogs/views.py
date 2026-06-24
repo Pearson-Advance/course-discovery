@@ -73,7 +73,7 @@ class EnterpriseCatalogCoursesViewSet(
             key__in=course_run_keys,
             seats__sku__isnull=False,
             seats__type__slug='professional',
-        ).select_related(
+        ).order_by('course__title', 'course__key').select_related(
             'course',
             'course__extra_description',
         ).prefetch_related(
