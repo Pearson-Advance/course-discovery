@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models.fields.related import ManyToManyField
+from django.http import QueryDict
 from django.utils.translation import gettext as _
 from edx_django_utils.cache import RequestCache
 from opaque_keys.edx.keys import CourseKey
@@ -74,6 +75,13 @@ def update_query_params_with_body_data(func_to_decorate):
     @functools.wraps(func_to_decorate)
     def wrapper(self, request, *args, **kwargs):
         _data = request.data.copy()
+
+        if isinstance(request.data, QueryDict):
+            # When request.data is a QueryDict and it contains list of values for a key, we need to ensure that
+            # we take all values for that key instead of just one.
+            # https://docs.djangoproject.com/en/6.0/ref/request-response/#django.http.QueryDict.lists
+            _data = dict(request.data.lists())
+
         for key, value in _data.items():
             if isinstance(value, (list, tuple)) and len(value) == 1:
                 _data[key] = value[0]
